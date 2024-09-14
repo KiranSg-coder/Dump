@@ -1,0 +1,644 @@
+
+npm i bootstrap react-bootstrap bootstrap-icons react-router-dom react-toastify
+
+Components/AddEmployee.js
+import React, { useEffect, useState } from 'react'
+import { notify } from '../utils';
+import { CreateEmployee, UpdateEmployeeById } from '../api';
+
+function AddEmployee({
+    showModal, setShowModal, fetchEmployees, employeeObj
+}) {
+    const [employee, setEmployee] = useState({
+        name: '',
+        email: '',
+        phone: '',
+        department: '',
+        salary: '',
+        profileImage: null
+    });
+    const [updateMode, setUpdateMode] = useState(false);
+
+    useEffect(() => {
+        if (employeeObj) {
+            setEmployee(employeeObj);
+            setUpdateMode(true);
+        }
+    }, [employeeObj]);
+
+    const handleChange = (e) => {
+        const { name, value } = e.target;
+        setEmployee({ ...employee, [name]: value });
+    };
+
+    const handleFileChange = (e) => {
+        setEmployee({ ...employee, profileImage: e.target.files[0] });
+    };
+
+    const resetEmployeeStates = () => {
+        setEmployee({
+            name: '',
+            email: '',
+            phone: '',
+            department: '',
+            salary: '',
+            profileImage: null,
+        })
+    }
+
+    const handleAddEmployee = async (e) => {
+        e.preventDefault();
+        try {
+            const { success, message } = updateMode ?
+                await UpdateEmployeeById(employee, employee._id)
+                : await CreateEmployee(employee);
+            console.log('create OR update ', success, message);
+            if (success) {
+                notify(message, 'success')
+            } else {
+                notify(message, 'error')
+            }
+            setShowModal(false);
+            resetEmployeeStates();
+            fetchEmployees();
+            setUpdateMode(false);
+        } catch (err) {
+            console.error(err);
+            notify('Failed to create Employee', 'error')
+        }
+    }
+
+    const handleModalClose = () => {
+        setShowModal(false);
+        setUpdateMode(false);
+        resetEmployeeStates();
+    }
+    return (
+        < div className={`modal ${showModal ? 'd-block' : ''}`
+        } tabIndex="-1" role="dialog" style={{ display: showModal ? 'block' : 'none' }}>
+            <div className="modal-dialog" role="document">
+                <div className="modal-content">
+                    <div className="modal-header">
+                        <h5 className="modal-title"> {
+                            updateMode ? 'Update Employee' : 'Add Employee'
+                        }</h5>
+                        <button type="button" className="btn-close"
+                            onClick={() => handleModalClose()}>
+                        </button>
+                    </div>
+                    <div className="modal-body">
+                        <form onSubmit={handleAddEmployee}>
+                            <div className="mb-3">
+                                <label className="form-label">Name</label>
+                                <input
+                                    type="text"
+                                    className="form-control"
+                                    name="name"
+                                    value={employee.name}
+                                    onChange={handleChange}
+                                    required
+                                />
+                            </div>
+                            <div className="mb-3">
+                                <label className="form-label">Email</label>
+                                <input
+                                    type="email"
+                                    className="form-control"
+                                    name="email"
+                                    value={employee.email}
+                                    onChange={handleChange}
+                                    required
+                                />
+                            </div>
+                            <div className="mb-3">
+                                <label className="form-label">Phone</label>
+                                <input
+                                    type="text"
+                                    className="form-control"
+                                    name="phone"
+                                    value={employee.phone}
+                                    onChange={handleChange}
+                                    required
+                                />
+                            </div>
+                            <div className="mb-3">
+                                <label className="form-label">Department</label>
+                                <input
+                                    type="text"
+                                    className="form-control"
+                                    name="department"
+                                    value={employee.department}
+                                    onChange={handleChange}
+                                    required
+                                />
+                            </div>
+                            <div className="mb-3">
+                                <label className="form-label">Salary</label>
+                                <input
+                                    type="text"
+                                    className="form-control"
+                                    name="salary"
+                                    value={employee.salary}
+                                    onChange={handleChange}
+                                    required
+                                />
+                            </div>
+                            <div className="mb-3">
+                                <label className="form-label">Profile Image</label>
+                                <input
+                                    type="file"
+                                    className="form-control"
+                                    name="profileImage"
+                                    onChange={handleFileChange}
+                                />
+                            </div>
+                            <button type="submit"
+                                className="btn btn-primary">
+                                {updateMode ? 'Update' : 'Save'}
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div >
+
+    )
+}
+
+export default AddEmployee
+--------------------------------------------------------------------------------
+EmployeeDetails.js
+import React, { useEffect, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import 'bootstrap/dist/css/bootstrap.min.css';
+import { GetEmployeeDetailsById } from '../api';
+
+const EmployeeDetails = () => {
+    const navigate = useNavigate();
+    const { id } = useParams();
+    const [employee, setEmployee] = useState({});
+
+    const fetchEmployeeDetails = async () => {
+        try {
+            const data = await GetEmployeeDetailsById(id);
+            setEmployee(data);
+        } catch (err) {
+            alert('Error', err);
+        }
+    }
+    useEffect(() => {
+        fetchEmployeeDetails();
+    }, [id])
+
+    if (!employee) {
+        return <div>Employee not found</div>;
+    }
+
+    return (
+        <div className="container mt-5">
+            <div className="card">
+                <div className="card-header">
+                    <h2>Employee Details</h2>
+                </div>
+                <div className="card-body">
+                    <div className="row mb-3">
+                        <div className="col-md-3">
+                            <img
+                                src={employee.profileImage}
+                                alt={employee.name}
+                                className="img-fluid rounded"
+                            />
+                        </div>
+                        <div className="col-md-9">
+                            <h4>{employee.name}</h4>
+                            <p><strong>Email:</strong> {employee.email}</p>
+                            <p><strong>Phone:</strong> {employee.phone}</p>
+                            <p><strong>Department:</strong> {employee.department}</p>
+                            <p><strong>Salary:</strong> {employee.salary}</p>
+                        </div>
+                    </div>
+                    <button className="btn btn-primary" onClick={() => navigate('/employee')}>
+                        Back
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+export default EmployeeDetails;
+
+-------------------------------------------------------------------
+EmployeeManagementApp.js
+
+
+import React, { useEffect, useState } from 'react';
+import EmployeeTable from './EmployeeTable';
+import AddEmployee from './AddEmployee';
+import { DeleteEmployeeById, GetAllEmployees } from '../api';
+import { ToastContainer } from 'react-toastify';
+import { notify } from '../utils';
+
+
+const EmployeeManagementApp = () => {
+    const [showModal, setShowModal] = useState(false);
+    const [employeeObj, setEmployeeObj] = useState(null)
+    const [employeesData, setEmployeesData] = useState({
+        employees: [],
+        pagination: {
+            currentPage: 1,
+            pageSize: 5,
+            totalEmployees: 0,
+            totalPages: 0
+        }
+    });
+
+    const fetchEmployees = async (search = '', page = 1, limit = 5) => {
+        console.log('Called fetchEmployees')
+        try {
+            const data =
+                await GetAllEmployees(search, page, limit);
+            console.log(data);
+            setEmployeesData(data);
+        } catch (err) {
+            alert('Error', err);
+        }
+    }
+    useEffect(() => {
+        fetchEmployees();
+    }, [])
+
+
+    const handleSearch = (e) => {
+        fetchEmployees(e.target.value)
+    }
+
+    const handleUpdateEmployee = async (emp) => {
+        setEmployeeObj(emp);
+        setShowModal(true);
+    }
+    return (
+        <div className='d-flex flex-column justify-content-center align-items-center w-100 p-3'>
+            <h1>Employee Management App</h1>
+            <div className='w-100 d-flex justify-content-center'>
+                <div className='w-80 border bg-light p-3' style={{ width: '80%' }}>
+                    <div className='d-flex justify-content-between mb-3'>
+                        <button className='btn btn-primary'
+                            onClick={() => setShowModal(true)}>Add</button>
+                        <input
+                            onChange={handleSearch}
+                            type="text"
+                            placeholder="Search Employees..."
+                            className='form-control w-50'
+                        />
+                    </div>
+                    <EmployeeTable
+                        employees={employeesData.employees}
+                        pagination={employeesData.pagination}
+                        fetchEmployees={fetchEmployees}
+                        handleUpdateEmployee={handleUpdateEmployee}
+                    />
+
+                    <AddEmployee
+                        fetchEmployees={fetchEmployees}
+                        showModal={showModal}
+                        setShowModal={setShowModal}
+                        employeeObj={employeeObj}
+                    />
+                </div>
+            </div>
+            <ToastContainer
+                position='top-right'
+                autoClose={3000}
+                hideProgressBar={false}
+            />
+        </div>
+    );
+};
+
+export default EmployeeManagementApp;
+
+---------------------------------------------------------------
+
+EmployeeTable.js
+import React from 'react'
+import { Link } from 'react-router-dom'
+import { DeleteEmployeeById } from '../api';
+import { notify } from '../utils';
+
+
+function EmployeeTable({
+    employees, pagination,
+    fetchEmployees, handleUpdateEmployee }) {
+    const headers = ['Name', 'Email', 'Phone', 'Department', 'Actions'];
+    const { currentPage, totalPages } = pagination;
+
+    const handleNextPage = () => {
+        if (currentPage < totalPages) {
+            handlePagination(currentPage + 1);
+        }
+    };
+
+    const handlePreviousPage = () => {
+        if (currentPage > 1) {
+            handlePagination(currentPage - 1);
+        }
+    };
+    const handlePagination = (currentPage) => {
+        fetchEmployees('', currentPage, 5)
+    }
+
+    const handleDeleteEmployee = async (id) => {
+        try {
+            const { success, message } = await DeleteEmployeeById(id);
+            if (success) {
+                notify(message, 'success')
+            } else {
+                notify(message, 'error')
+            }
+            fetchEmployees();
+        } catch (err) {
+            console.error(err);
+            notify('Failed to delete Employee', 'error')
+        }
+    }
+
+
+    const TableRow = ({ employee }) => {
+        return <tr>
+            <td>
+                <Link to={`/employee/${employee._id}`} className="text-decoration-none">
+                    {employee.name}
+                </Link>
+            </td>
+            <td>{employee.email}</td>
+            <td>{employee.phone}</td>
+            <td>{employee.department}</td>
+            <td>
+                <i
+                    className='bi bi-pencil-fill text-warning me-4'
+                    role="button"
+                    data-bs-toggle="tooltip"
+                    data-bs-placement="top"
+                    title="Edit"
+                    onClick={() => handleUpdateEmployee(employee)}
+                ></i>
+                <i
+                    className='bi bi-trash-fill text-danger'
+                    role="button"
+                    data-bs-toggle="tooltip"
+                    data-bs-placement="top"
+                    title="Delete"
+                    onClick={() => handleDeleteEmployee(employee._id)}
+                ></i>
+            </td>
+        </tr>
+    }
+    const pageNumbers = Array.from({ length: totalPages }, (_, index) => index + 1);
+
+    return (
+        <>
+            <table className='table table-striped'>
+                <thead>
+                    <tr>
+                        {
+                            headers.map((header, i) => (
+                                <th key={i}>{header}</th>
+                            ))
+                        }
+                    </tr>
+                </thead>
+                <tbody>
+                    {
+                        employees.length === 0 ? <div> Data Not Found</div>
+                            : employees.map((emp) => (
+                                <TableRow employee={emp} key={emp._id} />
+                            ))
+                    }
+                </tbody>
+            </table>
+
+            <div className="d-flex justify-content-between align-items-center my-3">
+                <span className="badge bg-primary">Page {currentPage} of {totalPages}</span>
+                <div>
+                    <button
+                        className="btn btn-outline-primary me-2"
+                        onClick={handlePreviousPage}
+                        disabled={currentPage === 1}
+                    >
+                        Previous
+                    </button>
+                    {pageNumbers.map(page => (
+                        <button
+                            key={page}
+                            className={`btn btn-outline-primary me-1 ${currentPage === page ? 'active' : ''}`}
+                            onClick={() => handlePagination(page)}
+                        >
+                            {page}
+                        </button>
+                    ))}
+                    <button
+                        className="btn btn-outline-primary ms-2"
+                        onClick={handleNextPage}
+                        disabled={currentPage === totalPages}
+                    >
+                        Next
+                    </button>
+                </div>
+            </div>
+
+        </>
+    )
+}
+
+export default EmployeeTable
+
+
+--------------------------------------------------------
+App.js
+import './App.css';
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import EmployeeManagementApp from './Components/EmployeeManagementApp';
+import EmployeeDetails from './Components/EmployeeDetails';
+
+function App() {
+  return (
+    <div>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<Navigate to="employee" />} />
+          <Route path="/employee" element={<EmployeeManagementApp />} />
+          <Route path="/employee/:id" element={<EmployeeDetails />} />
+        </Routes>
+      </BrowserRouter>
+    </div>
+  );
+}
+
+export default App;
+
+--------------------------------------------------------
+
+api.js
+
+const BASE_URL = 'http://localhost:8080';
+
+export const GetAllEmployees = async (search = '', page = 1, limit = 5) => {
+    const url =
+        `${BASE_URL}/api/employees?search=${search}&page=${page}&limit=${limit}`;
+    const options = {
+        method: 'GET',
+        headers: {
+            'Content-Type': 'application/json'
+        }
+    };
+    try {
+        const result = await fetch(url, options);
+        const { data } = await result.json();
+
+        return data;
+    } catch (err) {
+        return err;
+    }
+}
+
+export const GetEmployeeDetailsById = async (id) => {
+    const url =
+        `${BASE_URL}/api/employees/${id}`;
+    const options = {
+        method: 'GET',
+        headers: {
+            'Content-Type': 'application/json'
+        }
+    };
+    try {
+        const result = await fetch(url, options);
+        const { data } = await result.json();
+        console.log(data);
+        return data;
+    } catch (err) {
+        return err;
+    }
+}
+
+export const DeleteEmployeeById = async (id) => {
+    const url =
+        `${BASE_URL}/api/employees/${id}`;
+    const options = {
+        method: 'DELETE',
+        headers: {
+            'Content-Type': 'application/json'
+        }
+    };
+    try {
+        const result = await fetch(url, options);
+        const data = await result.json();
+        console.log(data);
+        return data;
+    } catch (err) {
+        return err;
+    }
+}
+
+
+export const CreateEmployee = async (empObj) => {
+    const url = `${BASE_URL}/api/employees`;
+    console.log('url ', url);
+    // Create a FormData object
+    const formData = new FormData();
+
+    // Append all fields to the FormData object
+    for (const key in empObj) {
+        formData.append(key, empObj[key]);
+    }
+    // FormData handles the headers and content type
+    const options = {
+        method: 'POST',
+        body: formData
+    };
+    try {
+        const result = await fetch(url, options);
+        const data = await result.json();
+        return data;
+    } catch (err) {
+        return err;
+    }
+};
+
+export const UpdateEmployeeById = async (empObj, id) => {
+    const url = `${BASE_URL}/api/employees/${id}`;
+    console.log('url ', url);
+    // Create a FormData object
+    const formData = new FormData();
+
+    // Append all fields to the FormData object
+    for (const key in empObj) {
+        formData.append(key, empObj[key]);
+    }
+    // FormData handles the headers and content type
+    const options = {
+        method: 'PUT',
+        body: formData
+    };
+    try {
+        const result = await fetch(url, options);
+        const data = await result.json();
+        console.log('<---update--> ', data);
+        return data;
+    } catch (err) {
+        return err;
+    }
+};
+
+-----------------------------------------------------------------
+
+index.js
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import './index.css';
+import App from './App';
+import reportWebVitals from './reportWebVitals';
+import 'react-toastify/ReactToastify.css';
+import 'bootstrap/dist/css/bootstrap.min.css';
+import 'bootstrap/dist/js/bootstrap.bundle.min';
+import 'bootstrap-icons/font/bootstrap-icons.css';
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>
+);
+
+// If you want to start measuring performance in your app, pass a function
+// to log results (for example: reportWebVitals(console.log))
+// or send to an analytics endpoint. Learn more: https://bit.ly/CRA-vitals
+reportWebVitals();
+
+----------------------------------------------------------------
+utils.js
+
+import { toast } from 'react-toastify';
+
+export const notify = (message, type) => {
+    toast[type](message);
+}
+
+
+-----------------------------
+
+dependensis
+ "dependencies": {
+    "@testing-library/jest-dom": "^5.17.0",
+    "@testing-library/react": "^13.4.0",
+    "@testing-library/user-event": "^13.5.0",
+    "bootstrap": "^5.3.3",
+    "bootstrap-icons": "^1.11.3",
+    "react": "^18.3.1",
+    "react-bootstrap": "^2.10.4",
+    "react-dom": "^18.3.1",
+    "react-icons": "^5.2.1",
+    "react-router-dom": "^6.24.1",
+    "react-scripts": "5.0.1",
+    "react-toastify": "^10.0.5",
+    "web-vitals": "^2.1.4"
+  },
