@@ -1,0 +1,138 @@
+Here's the step-by-step breakdown:
+Install the required packages:
+
+JWT handling: jsonwebtoken and bcrypt for password hashing.
+bash
+Copy code
+npm install jsonwebtoken bcrypt
+User model (Models/UserModel.js): Create a User model for storing user credentials.
+
+js
+Copy code
+const mongoose = require('mongoose');
+const Schema = mongoose.Schema;
+
+const UserSchema = new Schema({
+    username: { type: String, required: true, unique: true },
+    email: { type: String, required: true, unique: true },
+    password: { type: String, required: true },
+    roles: { type: [String], default: ['user'] }, // roles like 'admin', 'manager'
+});
+
+const UserModel = mongoose.model('users', UserSchema);
+module.exports = UserModel;
+Authentication Controller (Controllers/AuthController.js): Create login, logout, and register logic using JWT.
+
+js
+Copy code
+const UserModel = require('../Models/UserModel');
+const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
+
+// Register user
+const register = async (req, res) => {
+    try {
+        const { username, email, password } = req.body;
+        const hashedPassword = await bcrypt.hash(password, 10);
+
+        const newUser = new UserModel({
+            username,
+            email,
+            password: hashedPassword,
+        });
+
+        await newUser.save();
+        res.status(201).json({ message: 'User registered successfully' });
+    } catch (error) {
+        res.status(500).json({ message: 'Error registering user', error });
+    }
+};
+
+// Login user
+const login = async (req, res) => {
+    try {
+        const { email, password } = req.body;
+        const user = await UserModel.findOne({ email });
+
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        const isMatch = await bcrypt.compare(password, user.password);
+        if (!isMatch) {
+            return res.status(400).json({ message: 'Invalid credentials' });
+        }
+
+        const token = jwt.sign(
+            { userId: user._id, roles: user.roles },
+            process.env.JWT_SECRET,
+            { expiresIn: '1h' }
+        );
+
+        res.json({ token, message: 'Login successful' });
+    } catch (error) {
+        res.status(500).json({ message: 'Error logging in', error });
+    }
+};
+
+// Middleware to protect routes
+const authenticateJWT = (req, res, next) => {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) {
+        return res.status(401).json({ message: 'Access Denied' });
+    }
+
+    jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
+        if (err) {
+            return res.status(403).json({ message: 'Invalid Token' });
+        }
+        req.user = decoded;
+        next();
+    });
+};
+
+module.exports = { register, login, authenticateJWT };
+Auth routes (Routes/AuthRoutes.js): Define the routes for registering and logging in.
+
+js
+Copy code
+const { register, login } = require('../Controllers/AuthController');
+const router = require('express').Router();
+
+router.post('/register', register);
+router.post('/login', login);
+
+module.exports = router;
+Update index.js to include auth routes: Import and use the authentication routes.
+
+js
+Copy code
+const AuthRoutes = require('./Routes/AuthRoutes');
+const EmployeeRoutes = require('./Routes/EmployeeRoutes');
+
+// JWT Secret
+process.env.JWT_SECRET = 'your_jwt_secret';  // Add this in your .env as well
+
+app.use('/api/auth', AuthRoutes);
+app.use('/api/employees', EmployeeRoutes);
+Secure employee routes with JWT middleware (Routes/EmployeeRoutes.js): Apply the authenticateJWT middleware to protect routes.
+
+js
+Copy code
+const { createEmployee, getAllEmployees, getEmployeeById, deleteEmployeeById, updateEmployeeById } = require('../Controllers/EmployeeController');
+const { authenticateJWT } = require('../Controllers/AuthController');
+const { cloudinaryFileUploader } = require('../Middlewares/FileUplaoder');
+const router = require('express').Router();
+
+router.get('/', authenticateJWT, getAllEmployees);
+router.get('/:id', authenticateJWT, getEmployeeById);
+router.delete('/:id', authenticateJWT, deleteEmployeeById);
+router.put('/:id', authenticateJWT, cloudinaryFileUploader.single('profileImage'), updateEmployeeById);
+router.post('/', authenticateJWT, cloudinaryFileUploader.single('profileImage'), createEmployee);
+
+module.exports = router;
+.env update: Add the JWT secret key to your .env file.
+
+makefile
+Copy code
+JWT_SECRET=your_jwt_secret_key
