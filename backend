@@ -1,0 +1,315 @@
+backend
+npm init -y
+npm i express body-parser mongoose dotenv cors
+
+
+"start" : "nodemon index.js"
+
+npm i multer multer-storage-cloudinary cloudinary
+
+
+Controllers/EmployeeController.js
+
+const EmployeeModel = require("../Models/EmployeeModel");
+
+
+const createEmployee = async (req, res) => {
+    try {
+        const body = req.body;
+        const profileImage = req?.file ? req?.file?.path : null;
+        body.profileImage = profileImage;
+        const emp = new EmployeeModel(body);
+
+        await emp.save();
+        res.status(201)
+            .json({
+                message: 'Employee Created',
+                success: true
+            });
+    } catch (err) {
+        console.log('Error ', err);
+        res.status(500).json({
+            message: 'Internal Server Error',
+            success: false,
+            error: err
+        })
+    }
+}
+const getAllEmployees = async (req, res) => {
+    try {
+        // Get page and limit from query parameters
+        let { page, limit, search } = req.query;
+
+        // Set default values if they are not provided
+        page = parseInt(page) || 1;
+        limit = parseInt(limit) || 10;
+
+        // Calculate the number of documents to skip
+        const skip = (page - 1) * limit;
+
+        // Build the search criteria
+        let searchCriteria = {};
+        if (search) {
+            searchCriteria = {
+                name: {
+                    $regex: search,
+                    $options: 'i' // case insensitive
+                }
+            }
+        }
+        // Get the total number of employees for pagination info
+        const totalEmployees = await EmployeeModel.countDocuments(searchCriteria);
+
+        // Fetch the employees with pagination
+        const emps = await EmployeeModel.find(searchCriteria)
+            .skip(skip)
+            .limit(limit)
+            .sort({ updatedAt: -1 });
+
+        // Calculate total pages
+        const totalPages = Math.ceil(totalEmployees / limit);
+
+        res.status(200)
+            .json({
+                message: 'All Employees',
+                success: true,
+                data: {
+                    employees: emps,
+                    pagination: {
+                        totalEmployees,
+                        currentPage: page,
+                        totalPages,
+                        pageSize: limit
+                    }
+                }
+            });
+    } catch (err) {
+        console.log(err);
+        res.status(500).json({
+            message: 'Internal Server Error',
+            success: false,
+            error: err
+        });
+    }
+};
+
+const getEmployeeById = async (req, res) => {
+    try {
+        const id = req.params.id;
+        const emp = await EmployeeModel.findOne({ _id: id });
+        res.status(200)
+            .json({
+                message: 'Employee Details',
+                success: true,
+                data: emp
+            });
+    } catch (err) {
+        console.log(err);
+        res.status(500).json({
+            message: 'Internal Server Error',
+            success: false,
+            error: err
+        })
+    }
+}
+
+const deleteEmployeeById = async (req, res) => {
+    try {
+        const id = req.params.id;
+        await EmployeeModel.deleteOne({ _id: id });
+        res.status(200)
+            .json({
+                message: 'Employee Deleted Successfully',
+                success: true
+            });
+    } catch (err) {
+        console.log(err);
+        res.status(500).json({
+            message: 'Internal Server Error',
+            success: false,
+            error: err
+        })
+    }
+}
+
+const updateEmployeeById = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { name, email, phone, department, salary } = req.body;
+        let updateData = {
+            name, email, phone, department, salary, updatedAt: new Date()
+        };
+        console.log('<-- update ---> ', req.file)
+        if (req.file) {
+            updateData.profileImage = req.file.path;
+        }
+        const updatedEmployee = await EmployeeModel.findByIdAndUpdate(
+            id,
+            updateData,
+            { new: true }
+        );
+
+        if (!updatedEmployee) {
+            return res.status(404).json({ message: 'Employee not found' });
+        }
+        res.status(200)
+            .json({
+                message: 'Employee Updated Successfully',
+                success: true,
+                data: updatedEmployee
+            });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+}
+
+module.exports = {
+    createEmployee,
+    getAllEmployees,
+    getEmployeeById,
+    deleteEmployeeById,
+    updateEmployeeById
+}
+-----------------------------------------------------------------------------------------------------------------
+Middlewares/FileUplaoder.js
+const multer = require('multer');
+const { CloudinaryStorage } = require('multer-storage-cloudinary');
+const cloudinary = require('cloudinary').v2;
+
+cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET
+});
+
+const storage = new CloudinaryStorage({
+    cloudinary: cloudinary,
+    params: {
+        folder: 'uploads',
+        format: async (req, file) => 'png', // supports promises as well
+        public_id: (req, file) => file.originalname.split('.')[0] + ""
+    },
+});
+
+const cloudinaryFileUploader = multer({ storage: storage });
+
+module.exports = {
+    cloudinaryFileUploader
+}
+-------------------------------------------------------------------------------------------------------
+Models/db.js
+const mongoose = require('mongoose');
+const mongo_url = process.env.MONGO_URL;
+
+mongoose.connect(mongo_url)
+    .then(() => {
+        console.log('MongoDB connected...');
+
+    }).catch((err) => {
+        console.log('Error while mongoDB connecting..', err);
+
+    })
+
+------------------------------------------------------------------------------
+Models/EmployeeModel.js
+
+
+const mongoose = require('mongoose');
+const Schema = mongoose.Schema;
+
+const EmployeeSchema = new Schema({
+    name: {
+        type: String,
+        required: true
+    },
+    email: {
+        type: String,
+        required: true,
+        unique: true
+    },
+    phone: {
+        type: String,
+        required: true
+    },
+    department: {
+        type: String,
+        required: true
+    },
+    profileImage: {
+        type: String
+    },
+    salary: {
+        type: Number,
+        required: true
+    },
+    createdAt: {
+        type: Date,
+        default: new Date()
+    },
+    updatedAt: {
+        type: Date,
+        default: new Date()
+    },
+    // password: { type: String, required: true },
+    // roles: { type: [String], default: ['user'] }
+});
+
+const EmployeeModel = mongoose.model('employees', EmployeeSchema);
+module.exports = EmployeeModel;
+
+--------------------------------------------------------------------------
+Routes/ EmployeeRoutes.js
+const { createEmployee,
+    getAllEmployees,
+    getEmployeeById,
+    deleteEmployeeById,
+    updateEmployeeById
+} = require('../Controllers/EmployeeController');
+const { cloudinaryFileUploader } = require('../Middlewares/FileUplaoder');
+
+
+const router = require('express').Router();
+
+router.get('/', getAllEmployees)
+router.get('/:id', getEmployeeById)
+router.delete('/:id', deleteEmployeeById)
+router.put('/:id', cloudinaryFileUploader.single('profileImage'), updateEmployeeById)
+router.post('/', cloudinaryFileUploader.single('profileImage'), createEmployee);
+
+module.exports = router;
+
+--------------------------------------------------------------------------------
+.env
+PORT=8080
+MONGO_URL="mongodb+srv://emp:emp@cluster0.iivuy.mongodb.net/employee-db?retryWrites=true&w=majority&appName=Cluster0"
+CLOUDINARY_NAME="daewsiddx"
+CLOUDINARY_API_KEY="733594111521168"
+CLOUDINARY_API_SECRET="8uxdvVvz0rsRas8suXvwzPAmCjU"
+
+---------------------------------------------------------------------------------
+index.js
+
+
+const express = require('express');
+const app = express();
+const bodyParser = require('body-parser');
+require('dotenv').config();
+const cors = require('cors');
+const EmployeeRoutes = require('./Routes/EmployeeRoutes');
+const PORT = process.env.PORT || 8080;
+
+require('./Models/db');
+app.use(cors());
+app.use(bodyParser.json());
+
+app.use('/api/employees', EmployeeRoutes);
+
+
+app.listen(PORT, () => {
+    console.log(`Server is running on PORT: ${PORT}`);
+})
+
+
+
+
+
