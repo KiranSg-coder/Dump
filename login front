@@ -1,0 +1,240 @@
+Here’s a full code implementation of a login, registration, and logout system for the frontend using React, React-Router-Dom, Bootstrap, React-Toastify along with the backend API integration. This will extend the EmployeeManagementApp with authentication features.
+
+Prerequisites:
+Ensure the backend provides the necessary routes for login, registration, and logout:
+POST /api/auth/register – for user registration.
+POST /api/auth/login – for user login.
+POST /api/auth/logout – for user logout.
+You need to install the following dependencies:
+bash
+Copy code
+npm install bootstrap react-bootstrap bootstrap-icons react-router-dom react-toastify
+Complete Frontend Code:
+1. App.js
+Integrating Login, Register, and Protected Routes in the application.
+
+js
+Copy code
+import './App.css';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import EmployeeManagementApp from './Components/EmployeeManagementApp';
+import EmployeeDetails from './Components/EmployeeDetails';
+import Login from './Components/Login';
+import Register from './Components/Register';
+import { useState } from 'react';
+
+function App() {
+  const [auth, setAuth] = useState(false);  // Manages login state
+
+  return (
+    <BrowserRouter>
+      <Routes>
+        {/* Authentication Routes */}
+        <Route path="/login" element={<Login setAuth={setAuth} />} />
+        <Route path="/register" element={<Register />} />
+
+        {/* Protected Routes */}
+        <Route 
+          path="/employee" 
+          element={auth ? <EmployeeManagementApp /> : <Navigate to="/login" />} 
+        />
+        <Route 
+          path="/employee/:id" 
+          element={auth ? <EmployeeDetails /> : <Navigate to="/login" />} 
+        />
+
+        {/* Default Route */}
+        <Route path="/" element={<Navigate to={auth ? "/employee" : "/login"} />} />
+      </Routes>
+    </BrowserRouter>
+  );
+}
+
+export default App;
+2. Login.js
+Login form with API integration.
+
+js
+Copy code
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { notify } from '../utils';
+import { ToastContainer } from 'react-toastify';
+import 'bootstrap/dist/css/bootstrap.min.css';
+
+const Login = ({ setAuth }) => {
+  const navigate = useNavigate();
+  const [credentials, setCredentials] = useState({ email: '', password: '' });
+
+  const handleChange = (e) => {
+    setCredentials({ ...credentials, [e.target.name]: e.target.value });
+  };
+
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    try {
+      const response = await fetch('http://localhost:8080/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(credentials),
+      });
+      const data = await response.json();
+
+      if (data.success) {
+        notify('Login successful!', 'success');
+        setAuth(true);
+        navigate('/employee');
+      } else {
+        notify(data.message, 'error');
+      }
+    } catch (err) {
+      notify('Login failed!', 'error');
+    }
+  };
+
+  return (
+    <div className="container mt-5">
+      <div className="card">
+        <div className="card-header">
+          <h2>Login</h2>
+        </div>
+        <div className="card-body">
+          <form onSubmit={handleLogin}>
+            <div className="mb-3">
+              <label className="form-label">Email</label>
+              <input
+                type="email"
+                className="form-control"
+                name="email"
+                onChange={handleChange}
+                required
+              />
+            </div>
+            <div className="mb-3">
+              <label className="form-label">Password</label>
+              <input
+                type="password"
+                className="form-control"
+                name="password"
+                onChange={handleChange}
+                required
+              />
+            </div>
+            <button type="submit" className="btn btn-primary">Login</button>
+          </form>
+        </div>
+      </div>
+      <ToastContainer position='top-right' autoClose={3000} />
+    </div>
+  );
+};
+
+export default Login;
+3. Register.js
+Registration form to register new users.
+
+js
+Copy code
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { notify } from '../utils';
+import { ToastContainer } from 'react-toastify';
+import 'bootstrap/dist/css/bootstrap.min.css';
+
+const Register = () => {
+  const navigate = useNavigate();
+  const [credentials, setCredentials] = useState({ name: '', email: '', password: '' });
+
+  const handleChange = (e) => {
+    setCredentials({ ...credentials, [e.target.name]: e.target.value });
+  };
+
+  const handleRegister = async (e) => {
+    e.preventDefault();
+    try {
+      const response = await fetch('http://localhost:8080/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(credentials),
+      });
+      const data = await response.json();
+
+      if (data.success) {
+        notify('Registration successful!', 'success');
+        navigate('/login');
+      } else {
+        notify(data.message, 'error');
+      }
+    } catch (err) {
+      notify('Registration failed!', 'error');
+    }
+  };
+
+  return (
+    <div className="container mt-5">
+      <div className="card">
+        <div className="card-header">
+          <h2>Register</h2>
+        </div>
+        <div className="card-body">
+          <form onSubmit={handleRegister}>
+            <div className="mb-3">
+              <label className="form-label">Name</label>
+              <input
+                type="text"
+                className="form-control"
+                name="name"
+                onChange={handleChange}
+                required
+              />
+            </div>
+            <div className="mb-3">
+              <label className="form-label">Email</label>
+              <input
+                type="email"
+                className="form-control"
+                name="email"
+                onChange={handleChange}
+                required
+              />
+            </div>
+            <div className="mb-3">
+              <label className="form-label">Password</label>
+              <input
+                type="password"
+                className="form-control"
+                name="password"
+                onChange={handleChange}
+                required
+              />
+            </div>
+            <button type="submit" className="btn btn-primary">Register</button>
+          </form>
+        </div>
+      </div>
+      <ToastContainer position='top-right' autoClose={3000} />
+    </div>
+  );
+};
+
+export default Register;
+4. Logout Functionality
+You can handle logout by clearing any tokens stored (if applicable) and redirecting the user to the login page. Here's a basic implementation of the logout feature inside the EmployeeManagementApp component.
+
+js
+Copy code
+const handleLogout = () => {
+  setAuth(false);  // Clear auth state
+  navigate('/login');
+};
+Place this inside the EmployeeManagementApp component, and add a logout button in the UI:
+
+jsx
+Copy code
+<button className='btn btn-danger' onClick={handleLogout}>Logout</button>
+5. Backend API
+Ensure the backend provides these endpoints for login, registration, and logout:
+
+POST /api/auth/register: Registers a new user.
+POST /api/auth/login: Authenticates a user and returns success/failure.
+POST /api/auth/logout: Logs out a user and invalidates the session/token (if applicable).
